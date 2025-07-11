@@ -1,0 +1,81 @@
+services:
+  # React UI Development Server
+  mcp-ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ui
+      target: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../react-ui/src:/app/src
+      - ../react-ui/public:/app/public
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - mcp-web-server
+    networks:
+      - mcp-network
+
+  # MCP Web Server with Strands SDK
+  mcp-web-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../python_servers/logs:/app/logs
+      - ../config/.env:/app/.env
+    environment:
+      - MCP_SALESFORCE_URL=http://mcp-salesforce:8001
+      - MCP_JIRA_URL=http://mcp-jira:8002
+    depends_on:
+      - mcp-salesforce
+      - mcp-jira
+    networks:
+      - mcp-network
+
+  # Salesforce MCP Server
+  mcp-salesforce:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.mcp-server
+    ports:
+      - "8001:8001"
+    volumes:
+      - ../python_servers/salesforce_server_mcp.py:/app/server.py
+      - ../python_servers/logs:/app/logs
+      - ../config/.env:/app/.env
+    environment:
+      - MCP_SERVER_PORT=8001
+      - MCP_SERVER_HOST=0.0.0.0
+    command: ["python", "server.py"]
+    networks:
+      - mcp-network
+
+  # Jira MCP Server  
+  mcp-jira:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.mcp-server
+    ports:
+      - "8002:8002"
+    volumes:
+      - ../python_servers/jira_server_mcp.py:/app/server.py
+      - ../python_servers/logs:/app/logs
+      - ../config/.env:/app/.env
+    environment:
+      - MCP_SERVER_PORT=8002
+      - MCP_SERVER_HOST=0.0.0.0
+    command: ["python", "server.py"]
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
+
+volumes:
+  logs:
+    driver: local

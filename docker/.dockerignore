@@ -1,0 +1,89 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+TESTING.md
+SETUP.md
+CUSTOM_FIELDS_INTEGRATION.md
+
+# Development files
+.env.example
+.vscode
+.idea
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# Node.js
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Build outputs
+build
+dist
+*.egg-info
+
+# Logs
+logs
+*.log
+python_servers/logs/*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Demo and test files
+demo_data_generator.py
+demo_data_generator_simple.py
+create_demo_data.sh
+tests/
+python-installer.pkg
+
+# Scripts that aren't needed in containers
+start_native.sh
+start.sh

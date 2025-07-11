@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# uv
+.python-version.lock
+uv.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Logs
+*.log
+debug.log
+server.log
+
+# Environment variables
+.env.local
+.env.*.local
+
+# Temporary test files
+test_mcp.py
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp

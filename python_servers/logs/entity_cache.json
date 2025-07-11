@@ -1,0 +1,17 @@
+{
+  "Jira:TECH-1": {
+    "type": "Jira",
+    "key": "TECH-1",
+    "data": {
+      "key": "TECH-1",
+      "summary": "Database Performance Optimization",
+      "description": "Optimize database queries for Ballmart integration performance issues.\nSF_CASE_ID: 00001026",
+      "status": "To Do",
+      "assignee": "Unassigned",
+      "reporter": "Brian Tang",
+      "created": "2025-07-10T11:09:35.857-0700",
+      "updated": "2025-07-10T13:47:19.046-0700"
+    },
+    "cached_at": "2025-07-11T16:39:00.385751"
+  }
+}

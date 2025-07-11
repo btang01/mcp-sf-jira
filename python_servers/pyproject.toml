@@ -1,0 +1,30 @@
+[project]
+name = "mcp-integration"
+version = "1.0.0"
+description = "MCP Integration for Salesforce and Jira"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.10.1",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "anthropic>=0.50.0",
+    "simple-salesforce>=1.12.0",
+    "jira>=3.8.0",
+    "strands-sdk>=0.1.0",
+    "redis>=4.5.0",
+    "prometheus-client>=0.17.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
