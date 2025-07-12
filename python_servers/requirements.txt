@@ -23,6 +23,3 @@ asyncio-throttle>=1.0.2
 
 # HTTP client for Docker version
 aiohttp>=3.8.0
-
-# Additional dependencies for enhanced error handling
-tenacity>=8.2.0

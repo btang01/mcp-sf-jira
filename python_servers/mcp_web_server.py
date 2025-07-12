@@ -37,7 +37,6 @@ except ImportError as e:
     STRANDS_MEMORY_AVAILABLE = False
 
 # Enhanced error handling
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import traceback
 
 # Load environment variables
@@ -864,30 +863,15 @@ When querying data, always include custom fields in your SOQL queries to provide
             return f"I encountered an error processing your request: {str(e)}"
     
     async def _call_mcp_tool(self, service: str, tool_name: str, arguments: Dict[str, Any]) -> str:
-        """Call an MCP tool via HTTP with Strands retry logic"""
+        """Call an MCP tool via HTTP"""
         svc = self.services[service]
         if not svc.connected:
             raise ValueError(f"Service {service} not connected")
         
-        # Use Strands retry logic if available
-        if STRANDS_AVAILABLE and self.retry_config:
-            return await self._call_mcp_tool_with_retry(service, tool_name, arguments)
-        else:
-            return await self._call_mcp_tool_direct(service, tool_name, arguments)
+        # Call MCP tool directly (Strands SDK handles its own retry logic internally)
+        return await self._call_mcp_tool_direct(service, tool_name, arguments)
     
-    async def _call_mcp_tool_with_retry(self, service: str, tool_name: str, arguments: Dict[str, Any]) -> str:
-        """Call MCP tool with Strands retry configuration"""
-        @with_retry(self.retry_config)
-        async def _make_request():
-            return await self._call_mcp_tool_direct(service, tool_name, arguments)
-        
-        return await _make_request()
     
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError))
-    )
     async def _call_mcp_tool_direct(self, service: str, tool_name: str, arguments: Dict[str, Any]) -> str:
         """Direct MCP tool call with enhanced error handling and retry logic"""
         svc = self.services[service]
