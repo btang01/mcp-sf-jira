@@ -1,17 +1,19 @@
-# 🤖 **MCP Demo System**
+# 🤖 MCP Demo System
 
 AI-powered business intelligence that connects **Salesforce** and **Jira** for intelligent cross-system insights and automation.
 
 ---
 
-## 🎯 **What It Does**
+## 🎯 What It Does
 
-- **Ask natural language questions** about your business data
-- **Get AI-powered insights** across Salesforce and Jira
-- **Automate workflows** between systems
+Transform your business data into actionable insights with natural language queries:
+
+- **Ask questions** about your business data across systems
+- **Get AI-powered insights** from Salesforce and Jira
+- **Automate workflows** between platforms
 - **Create cross-system reports** and analysis
 
-### **Example Queries**
+### Example Queries
 - *"Show me high-priority opportunities that are at risk"*
 - *"Which customers have both large deals and open support cases?"*
 - *"Create a Jira issue for this Salesforce case"*
@@ -19,44 +21,36 @@ AI-powered business intelligence that connects **Salesforce** and **Jira** for i
 
 ---
 
-## 🚀 **Quick Start**
+## 🚀 Quick Start
 
-### **1. Prerequisites**
+### Prerequisites
 - Docker Desktop
 - Salesforce account (Developer Edition works)
 - Jira Cloud account  
 - Anthropic API key
 
-### **2. Setup**
+### Setup & Launch
 ```bash
-# 1. Clone the repository
+# 1. Clone and navigate
 git clone https://github.com/btang01/mcp-sf-jira.git
 cd mcp-sf-jira
 
-# 2. Configure credentials (see SETUP.md for details)
+# 2. Configure credentials
 cp config/.env.example config/.env
-# Edit config/.env with your credentials
+# Edit config/.env with your API keys and credentials
 
 # 3. Start the system
 cd docker
 docker-compose up -d
 ```
 
-### **3. Access**
+### Access Points
 - **Web Interface**: http://localhost:3000
 - **API Health**: http://localhost:8000/api/health
 
 ---
 
-## 📚 **Documentation**
-
-- **[SETUP.md](docs/SETUP.md)** - Complete setup instructions
-- **[USAGE.md](docs/USAGE.md)** - How to use the system
-- **[ERROR_FIXES_SUMMARY.md](docs/ERROR_FIXES_SUMMARY.md)** - Troubleshooting guide
-
----
-
-## 🏗️ **Architecture**
+## 🏗️ Architecture
 
 ```
 React UI (Port 3000)
@@ -71,65 +65,53 @@ FastAPI Web Server (Port 8000)
 Salesforce API      Jira Cloud API
 ```
 
-### **Key Features**
-- ✅ **MCP Protocol** for tool integration
-- ✅ **Anthropic Claude** for AI processing
-- ✅ **Docker containerization** for easy deployment
-- ✅ **Cross-platform** (Windows, macOS, Linux)
-- ✅ **Real-time streaming** responses
-- ✅ **Comprehensive error handling**
-
----
-
-## 🛠️ **Technology Stack**
-
+### Technology Stack
 - **Backend**: Python 3.12, FastAPI, MCP Protocol
 - **Frontend**: React, Tailwind CSS
 - **AI**: Anthropic Claude 3.5 Sonnet
-- **Integrations**: Salesforce REST API, Jira REST API
 - **Deployment**: Docker, Docker Compose
 
 ---
 
-## 🎉 **What You Can Build**
+## 📚 Documentation
 
-### **Business Intelligence**
-- Sales pipeline analysis
-- Customer health scoring
+- **[Setup Guide](docs/SETUP.md)** - Complete installation and configuration
+- **[Usage Guide](docs/USAGE.md)** - How to use the system effectively
+- **[Troubleshooting](docs/ERROR_FIXES_SUMMARY.md)** - Common issues and solutions
+- **[Custom Fields](docs/SALESFORCE_CUSTOM_FIELDS_SETUP.md)** - Advanced Salesforce integration
+
+---
+
+## 🎉 What You Can Build
+
+### Business Intelligence
+- Sales pipeline analysis with risk assessment
+- Customer health scoring across systems
 - Implementation project tracking
-- Support case correlation
+- Support case correlation and trends
 
-### **Automation Workflows**
+### Automation Workflows
 - Auto-create Jira issues from Salesforce cases
 - Link opportunities to implementation projects
 - Sync customer data between systems
 - Generate cross-system reports
 
-### **AI-Powered Insights**
-- Identify at-risk customers
-- Predict project delays
-- Recommend next actions
-- Analyze business patterns
+### AI-Powered Insights
+- Identify at-risk customers and deals
+- Predict project delays and bottlenecks
+- Recommend next actions based on data patterns
+- Analyze business trends across platforms
 
 ---
 
-## 🚀 **Getting Started**
+## 🚀 Getting Started
 
-1. **Read [SETUP.md](docs/SETUP.md)** for detailed setup instructions
-2. **Follow the Quick Start** above to get running
-3. **Check [USAGE.md](docs/USAGE.md)** for examples and best practices
-4. **Start asking questions** in the web interface!
+1. **Complete the Quick Start** above to get running
+2. **Test the connection**: Visit http://localhost:8000/api/health
+3. **Start asking questions** in the web interface
+4. **Explore the documentation** for advanced features
 
----
-
-## 📊 **System Status**
-
-Once running, check system health:
-```bash
-curl http://localhost:8000/api/health
-```
-
-Expected response:
+Expected health check response:
 ```json
 {
   "status": "healthy",
@@ -144,9 +126,9 @@ Expected response:
 
 ---
 
-## 🤝 **Contributing**
+## 🤝 Contributing
 
-This is a demo system showcasing MCP protocol integration. Feel free to:
+This demo showcases MCP protocol integration. Feel free to:
 - Fork and extend functionality
 - Add new integrations
 - Improve the UI/UX
@@ -154,10 +136,10 @@ This is a demo system showcasing MCP protocol integration. Feel free to:
 
 ---
 
-## 📄 **License**
+## 📄 License
 
 MIT License - see LICENSE file for details.
 
 ---
 
-**Ready to transform your business intelligence with AI? Get started with the setup guide!** 🚀
+**Ready to transform your business intelligence with AI?** 🚀
