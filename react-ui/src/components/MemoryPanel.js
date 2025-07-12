@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Database, Clock, Users, FileText, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Brain, Database, Clock, Users, FileText, AlertCircle, RefreshCw, Eye, EyeOff, Zap, Target, Lightbulb, Cog, TrendingUp, ArrowRight, CheckCircle } from 'lucide-react';
 
 const MemoryPanel = ({ onThinking, onActivity }) => {
   const [memoryData, setMemoryData] = useState({
@@ -18,8 +18,11 @@ const MemoryPanel = ({ onThinking, onActivity }) => {
   const [expandedSections, setExpandedSections] = useState({
     entities: true,
     conversations: true,
-    context: true
+    context: true,
+    thinking: true
   });
+  const [thinkingSessions, setThinkingSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState(null);
 
   // Fetch memory data from the backend
   const fetchMemoryData = async () => {
@@ -45,12 +48,81 @@ const MemoryPanel = ({ onThinking, onActivity }) => {
     }
   };
 
+  // Fetch thinking sessions
+  const fetchThinkingSessions = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/thinking-sessions`);
+      if (response.ok) {
+        const data = await response.json();
+        setThinkingSessions(data.sessions || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch thinking sessions:', err);
+    }
+  };
+
+  // Fetch detailed thinking steps for a session
+  const fetchThinkingSteps = async (sessionId) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/thinking/${sessionId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedSession(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch thinking steps:', err);
+    }
+  };
+
+  // Get thinking step icon and color
+  const getThinkingStepIcon = (type) => {
+    switch (type) {
+      case 'reasoning':
+        return <Lightbulb className="h-4 w-4" />;
+      case 'tool_selection':
+        return <Cog className="h-4 w-4" />;
+      case 'result_analysis':
+        return <TrendingUp className="h-4 w-4" />;
+      case 'sequential_planning':
+        return <Target className="h-4 w-4" />;
+      case 'causal_reasoning':
+        return <Zap className="h-4 w-4" />;
+      case 'error_handling':
+        return <AlertCircle className="h-4 w-4" />;
+      default:
+        return <Brain className="h-4 w-4" />;
+    }
+  };
+
+  const getThinkingStepColor = (type) => {
+    switch (type) {
+      case 'reasoning':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'tool_selection':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'result_analysis':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'sequential_planning':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'causal_reasoning':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'error_handling':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
   // Auto-refresh memory data
   useEffect(() => {
     fetchMemoryData();
+    fetchThinkingSessions();
     
     if (autoRefresh) {
-      const interval = setInterval(fetchMemoryData, 5000); // Refresh every 5 seconds
+      const interval = setInterval(() => {
+        fetchMemoryData();
+        fetchThinkingSessions();
+      }, 5000); // Refresh every 5 seconds
       return () => clearInterval(interval);
     }
   }, [autoRefresh]);
@@ -338,6 +410,171 @@ const MemoryPanel = ({ onThinking, onActivity }) => {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Thinking Process Visualization */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-4 border-b border-gray-200">
+          <button
+            onClick={() => toggleSection('thinking')}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <div className="flex items-center space-x-2">
+              <Brain className="h-5 w-5 text-indigo-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Claude's Thinking Process</h3>
+              <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-xs font-medium">
+                {thinkingSessions.length} sessions
+              </span>
+            </div>
+            {expandedSections.thinking ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          </button>
+        </div>
+        
+        {expandedSections.thinking && (
+          <div className="p-4">
+            {thinkingSessions.length === 0 ? (
+              <div className="text-center py-8">
+                <Brain className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-500">No thinking sessions captured yet</p>
+                <p className="text-sm text-gray-400 mt-1">Start a conversation to see Claude's thought process</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Session List */}
+                <div className="grid gap-3">
+                  {thinkingSessions.slice(-5).map((session, index) => (
+                    <div 
+                      key={session.session_id}
+                      className={`border rounded-lg p-3 cursor-pointer transition-all hover:shadow-md ${
+                        selectedSession?.session_id === session.session_id 
+                          ? 'border-indigo-300 bg-indigo-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => fetchThinkingSteps(session.session_id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-indigo-100 p-2 rounded-full">
+                            <Brain className="h-4 w-4 text-indigo-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">
+                              Session {session.session_id.split('_')[1]}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              {session.step_count} thinking steps
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right text-xs text-gray-500">
+                          <div>{formatTimestamp(session.first_step_time)}</div>
+                          <div className="flex items-center space-x-1 mt-1">
+                            <Clock className="h-3 w-3" />
+                            <span>
+                              {Math.round((new Date(session.last_step_time) - new Date(session.first_step_time)) / 1000)}s
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Detailed Thinking Steps */}
+                {selectedSession && (
+                  <div className="mt-6 border-t pt-6">
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Zap className="h-5 w-5 text-indigo-600" />
+                      <h4 className="text-lg font-semibold text-gray-900">
+                        Thinking Flow - Session {selectedSession.session_id.split('_')[1]}
+                      </h4>
+                    </div>
+                    
+                    {/* Thinking Flow Visualization */}
+                    <div className="relative">
+                      {selectedSession.thinking_steps.map((step, index) => (
+                        <div key={index} className="relative flex items-start space-x-4 pb-6">
+                          {/* Connection Line */}
+                          {index < selectedSession.thinking_steps.length - 1 && (
+                            <div className="absolute left-6 top-12 w-0.5 h-full bg-gray-200"></div>
+                          )}
+                          
+                          {/* Step Icon */}
+                          <div className={`flex-shrink-0 w-12 h-12 rounded-full border-2 flex items-center justify-center ${getThinkingStepColor(step.type)}`}>
+                            {getThinkingStepIcon(step.type)}
+                          </div>
+                          
+                          {/* Step Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <h5 className="font-medium text-gray-900 capitalize">
+                                {step.type.replace('_', ' ')}
+                              </h5>
+                              <span className="text-xs text-gray-500">
+                                Step {step.step_number + 1}
+                              </span>
+                              {step.confidence && (
+                                <div className="flex items-center space-x-1">
+                                  <div className="w-16 bg-gray-200 rounded-full h-2">
+                                    <div 
+                                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                                      style={{ width: `${step.confidence * 100}%` }}
+                                    ></div>
+                                  </div>
+                                  <span className="text-xs text-gray-600">
+                                    {Math.round(step.confidence * 100)}%
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="bg-gray-50 rounded-lg p-3 mb-2">
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                {step.content}
+                              </p>
+                            </div>
+                            
+                            {step.alternatives_considered && step.alternatives_considered.length > 0 && (
+                              <div className="mt-2">
+                                <details className="group">
+                                  <summary className="cursor-pointer text-xs text-indigo-600 hover:text-indigo-800 flex items-center space-x-1">
+                                    <span>Alternatives Considered</span>
+                                    <ArrowRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
+                                  </summary>
+                                  <div className="mt-2 pl-4 border-l-2 border-indigo-200">
+                                    {step.alternatives_considered.map((alt, altIndex) => (
+                                      <div key={altIndex} className="text-xs text-gray-600 mb-1">
+                                        • {alt}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </details>
+                              </div>
+                            )}
+                            
+                            <div className="text-xs text-gray-500 mt-2">
+                              {formatTimestamp(step.timestamp)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Completion Indicator */}
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-full bg-green-100 border-2 border-green-200 flex items-center justify-center">
+                          <CheckCircle className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div className="text-sm text-green-700 font-medium">
+                          Thinking process completed
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

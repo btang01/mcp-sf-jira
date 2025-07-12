@@ -318,14 +318,15 @@ const AssistantChat = ({ isOpen, onClose }) => {
     setMessages(prev => [...prev, thinkingMessage]);
     
     try {
-      // Try the enhanced chat endpoint first
-      const response = await fetch('http://localhost:8000/api/chat', {
+      // Use the thinking-enabled chat endpoint
+      const response = await fetch('http://localhost:8000/api/chat-with-thinking', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: input
+          message: input,
+          capture_thinking: true
         })
       });
       

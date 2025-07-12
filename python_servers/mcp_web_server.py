@@ -21,6 +21,7 @@ from pydantic import BaseModel
 import uvicorn
 from anthropic import Anthropic
 from dotenv import load_dotenv
+import re
 
 # Strands SDK imports (correct API from documentation)
 try:
@@ -95,13 +96,24 @@ class ToolCallResponse(BaseModel):
     execution_time_ms: Optional[float] = None
     trace_id: Optional[str] = None
 
+class ThinkingStep(BaseModel):
+    step_number: int
+    timestamp: str
+    type: str  # 'reasoning', 'tool_selection', 'parameter_decision', 'analysis'
+    content: str
+    confidence: Optional[float] = None
+    alternatives_considered: Optional[List[str]] = None
+
 class ChatRequest(BaseModel):
     message: str
+    capture_thinking: bool = False
     
 class ChatResponse(BaseModel):
     response: str
     success: bool
     timestamp: str
+    thinking_steps: Optional[List[ThinkingStep]] = None
+    tool_calls: Optional[List[Dict[str, Any]]] = None
     error: Optional[str] = None
     execution_time_ms: Optional[float] = None
     trace_id: Optional[str] = None
@@ -173,6 +185,9 @@ class MCPWebServer:
         self.context_file = "logs/session_context.json"
         self.entity_cache = self._load_cache_from_file(self.cache_file)
         self.session_context = self._load_cache_from_file(self.context_file)
+        
+        # Thinking capture storage
+        self.thinking_sessions: Dict[str, List[ThinkingStep]] = {}
         
         # Initialize Strands components
         self.strands_agent = None
@@ -464,12 +479,84 @@ class MCPWebServer:
                     'timestamp': datetime.now().isoformat()
                 }
 
+        @self.app.post("/api/chat-with-thinking")
+        async def chat_with_thinking(request: ChatRequest) -> ChatResponse:
+            """Enhanced chat endpoint that captures thinking process"""
+            start_time = datetime.now()
+            session_id = f"session_{int(start_time.timestamp() * 1000)}"
+            
+            logger.info(f"Chat with thinking capture: {request.message}")
+            
+            try:
+                if not self.anthropic:
+                    return ChatResponse(
+                        response="AI services not configured. Please add ANTHROPIC_API_KEY.",
+                        success=False,
+                        timestamp=datetime.now().isoformat(),
+                        error="No AI services available"
+                    )
+                
+                # Process with thinking capture
+                response_text, thinking_steps, tool_calls = await self._process_with_thinking_capture(
+                    request.message, session_id, request.capture_thinking
+                )
+                
+                execution_time = (datetime.now() - start_time).total_seconds() * 1000
+                
+                return ChatResponse(
+                    response=response_text,
+                    success=True,
+                    timestamp=datetime.now().isoformat(),
+                    thinking_steps=thinking_steps if request.capture_thinking else None,
+                    tool_calls=tool_calls,
+                    execution_time_ms=execution_time
+                )
+                
+            except Exception as e:
+                execution_time = (datetime.now() - start_time).total_seconds() * 1000
+                
+                logger.error(f"Chat error: {e}")
+                return ChatResponse(
+                    response="I encountered an error processing your request. Please try again.",
+                    success=False,
+                    timestamp=datetime.now().isoformat(),
+                    error=str(e),
+                    execution_time_ms=execution_time
+                )
+        
+        @self.app.get("/api/thinking/{session_id}")
+        async def get_thinking_steps(session_id: str):
+            """Get thinking steps for a specific session"""
+            if session_id in self.thinking_sessions:
+                return {
+                    "session_id": session_id,
+                    "thinking_steps": self.thinking_sessions[session_id],
+                    "total_steps": len(self.thinking_sessions[session_id])
+                }
+            else:
+                raise HTTPException(status_code=404, detail="Session not found")
+        
+        @self.app.get("/api/thinking-sessions")
+        async def list_thinking_sessions():
+            """List all available thinking sessions"""
+            sessions = []
+            for session_id, steps in self.thinking_sessions.items():
+                sessions.append({
+                    "session_id": session_id,
+                    "step_count": len(steps),
+                    "first_step_time": steps[0].timestamp if steps else None,
+                    "last_step_time": steps[-1].timestamp if steps else None
+                })
+            return {"sessions": sessions}
+
         @self.app.get("/api/health")
         async def health_check():
             """Health check with Strands integration status"""
             return {
                 "status": "healthy",
                 "timestamp": datetime.now().isoformat(),
+                "thinking_capture_enabled": True,
+                "active_thinking_sessions": len(self.thinking_sessions),
                 "connections": {
                     service: {
                         "connected": svc.connected, 
@@ -1623,6 +1710,239 @@ Execute the complex workflow systematically, providing detailed progress updates
             return metadata
         except Exception:
             return {}
+
+    async def _process_with_thinking_capture(self, query: str, session_id: str, capture_thinking: bool = True) -> tuple:
+        """Process chat with enhanced thinking capture"""
+        
+        if not self.available_tools:
+            return "No MCP tools available. Please check service connections.", [], []
+        
+        # Initialize thinking steps for this session
+        if capture_thinking:
+            self.thinking_sessions[session_id] = []
+        
+        # Enhanced system prompt that encourages explicit reasoning
+        system_prompt = f"""You are an AI assistant with access to Salesforce and Jira systems through MCP tools.
+
+THINKING PROCESS INSTRUCTIONS:
+When processing requests, you should think step-by-step and be explicit about your reasoning process. 
+
+For each major decision, consider:
+1. What information do I need to gather?
+2. Which tools should I use and why?
+3. What parameters should I pass and why?
+4. How does this step connect to the overall goal?
+5. What are alternative approaches I could take?
+
+Be thorough in your analysis and explain your reasoning clearly.
+
+Available tools: {[tool['name'] for tool in self.available_tools]}
+
+Your goal is to provide comprehensive, well-reasoned responses while being transparent about your decision-making process."""
+        
+        messages = [{'role': 'user', 'content': query}]
+        
+        try:
+            response = self.anthropic.messages.create(
+                max_tokens=2024,
+                model='claude-3-5-sonnet-20241022',
+                system=system_prompt,
+                tools=self.available_tools,
+                messages=messages
+            )
+            
+            process_query = True
+            full_response = ""
+            tool_calls = []
+            step_counter = 0
+            
+            while process_query:
+                assistant_content = []
+                
+                for content in response.content:
+                    if content.type == 'text':
+                        # Capture thinking from text content
+                        if capture_thinking:
+                            await self._extract_thinking_from_text(content.text, session_id, step_counter)
+                            step_counter += 1
+                        
+                        full_response += content.text
+                        assistant_content.append(content)
+                        if len(response.content) == 1:
+                            process_query = False
+                            
+                    elif content.type == 'tool_use':
+                        assistant_content.append(content)
+                        messages.append({'role': 'assistant', 'content': assistant_content})
+                        
+                        tool_id = content.id
+                        tool_args = content.input
+                        tool_name = content.name
+                        
+                        # Capture tool selection thinking
+                        if capture_thinking:
+                            await self._capture_tool_selection_thinking(
+                                tool_name, tool_args, session_id, step_counter
+                            )
+                            step_counter += 1
+                        
+                        logger.info(f"Claude calling tool {tool_name} with args {tool_args}")
+                        
+                        # Record tool call
+                        tool_call_record = {
+                            "tool_name": tool_name,
+                            "arguments": tool_args,
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        tool_calls.append(tool_call_record)
+                        
+                        try:
+                            # Find which service has this tool
+                            server_name = self.tool_to_server.get(tool_name)
+                            if not server_name:
+                                raise ValueError(f"Tool {tool_name} not found")
+                                
+                            result = await self._call_mcp_tool(server_name, tool_name, tool_args)
+                            
+                            # Capture result analysis thinking
+                            if capture_thinking:
+                                await self._capture_result_analysis_thinking(
+                                    tool_name, result, session_id, step_counter
+                                )
+                                step_counter += 1
+                            
+                            # Format result for Claude
+                            tool_result = {
+                                "type": "tool_result",
+                                "tool_use_id": tool_id,
+                                "content": result
+                            }
+                            
+                            messages.append({"role": "user", "content": [tool_result]})
+                            
+                            # Get next response from Claude
+                            response = self.anthropic.messages.create(
+                                max_tokens=2024,
+                                model='claude-3-5-sonnet-20241022',
+                                system=system_prompt,
+                                tools=self.available_tools,
+                                messages=messages
+                            )
+                            
+                            if len(response.content) == 1 and response.content[0].type == "text":
+                                # Capture final analysis thinking
+                                if capture_thinking:
+                                    await self._extract_thinking_from_text(
+                                        response.content[0].text, session_id, step_counter
+                                    )
+                                
+                                full_response += "\n\n" + response.content[0].text
+                                process_query = False
+                                
+                        except Exception as e:
+                            logger.error(f"Error calling tool {tool_name}: {e}")
+                            
+                            # Capture error handling thinking
+                            if capture_thinking:
+                                await self._capture_error_handling_thinking(
+                                    tool_name, str(e), session_id, step_counter
+                                )
+                            
+                            # Send error as tool result
+                            tool_result = {
+                                "type": "tool_result",
+                                "tool_use_id": tool_id,
+                                "content": f"Error: {str(e)}"
+                            }
+                            
+                            messages.append({"role": "user", "content": [tool_result]})
+                            
+                            response = self.anthropic.messages.create(
+                                max_tokens=2024,
+                                model='claude-3-5-sonnet-20241022',
+                                system=system_prompt,
+                                tools=self.available_tools,
+                                messages=messages
+                            )
+                            
+                            if len(response.content) == 1 and response.content[0].type == "text":
+                                full_response += f"\nI encountered an error: {str(e)}\n"
+                                full_response += response.content[0].text
+                                process_query = False
+            
+            thinking_steps = self.thinking_sessions.get(session_id, []) if capture_thinking else []
+            return full_response, thinking_steps, tool_calls
+            
+        except Exception as e:
+            logger.error(f"Error processing chat query: {e}")
+            return f"I encountered an error processing your request: {str(e)}", [], []
+    
+    async def _extract_thinking_from_text(self, text: str, session_id: str, step_number: int):
+        """Extract thinking patterns from Claude's text responses"""
+        thinking_patterns = [
+            (r"I need to|I should|I'll|Let me", "reasoning"),
+            (r"First|Then|Next|Finally", "sequential_planning"),
+            (r"because|since|due to|as a result", "causal_reasoning"),
+            (r"Looking at|Analyzing|Examining", "analysis"),
+            (r"This means|This indicates|This suggests", "inference"),
+            (r"I'll use|I'll call|I'll query", "tool_selection"),
+            (r"The best approach|I could also|Alternatively", "strategy_consideration")
+        ]
+        
+        for pattern, thinking_type in thinking_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                # Extract sentence containing the thinking pattern
+                sentences = re.split(r'[.!?]+', text)
+                for sentence in sentences:
+                    if match.group() in sentence:
+                        thinking_step = ThinkingStep(
+                            step_number=step_number,
+                            timestamp=datetime.now().isoformat(),
+                            type=thinking_type,
+                            content=sentence.strip(),
+                            confidence=0.8  # Default confidence for extracted thinking
+                        )
+                        self.thinking_sessions[session_id].append(thinking_step)
+                        break
+                break
+    
+    async def _capture_tool_selection_thinking(self, tool_name: str, tool_args: Dict[str, Any], session_id: str, step_number: int):
+        """Capture thinking about tool selection"""
+        thinking_step = ThinkingStep(
+            step_number=step_number,
+            timestamp=datetime.now().isoformat(),
+            type="tool_selection",
+            content=f"Selected tool '{tool_name}' to accomplish the task. Parameters chosen: {json.dumps(tool_args, indent=2)}",
+            confidence=0.9,
+            alternatives_considered=[f"Could have used other tools: {list(self.tool_to_server.keys())}"]
+        )
+        self.thinking_sessions[session_id].append(thinking_step)
+    
+    async def _capture_result_analysis_thinking(self, tool_name: str, result: str, session_id: str, step_number: int):
+        """Capture thinking about tool result analysis"""
+        # Analyze result to infer thinking
+        result_preview = result[:200] + "..." if len(result) > 200 else result
+        
+        thinking_step = ThinkingStep(
+            step_number=step_number,
+            timestamp=datetime.now().isoformat(),
+            type="result_analysis",
+            content=f"Analyzing result from '{tool_name}': {result_preview}. This data will help me formulate the response and determine if additional tool calls are needed.",
+            confidence=0.7
+        )
+        self.thinking_sessions[session_id].append(thinking_step)
+    
+    async def _capture_error_handling_thinking(self, tool_name: str, error: str, session_id: str, step_number: int):
+        """Capture thinking about error handling"""
+        thinking_step = ThinkingStep(
+            step_number=step_number,
+            timestamp=datetime.now().isoformat(),
+            type="error_handling",
+            content=f"Encountered error with '{tool_name}': {error}. Need to handle this gracefully and potentially try alternative approaches.",
+            confidence=0.8
+        )
+        self.thinking_sessions[session_id].append(thinking_step)
 
     def _ensure_memory_persistence(self):
         """Ensure memory is persisted after each significant operation"""
