@@ -2,26 +2,6 @@
   "conversation_history": [
     {
       "role": "user",
-      "content": "what did i just say",
-      "timestamp": "2025-07-11T16:56:48.031593"
-    },
-    {
-      "role": "assistant",
-      "content": "You just said \"what did I just say\"",
-      "timestamp": "2025-07-11T16:56:48.031620"
-    },
-    {
-      "role": "user",
-      "content": "what did i say earlier",
-      "timestamp": "2025-07-11T16:56:56.578647"
-    },
-    {
-      "role": "assistant",
-      "content": "Earlier, you said \"hi\", and before that, you introduced yourself by saying \"Hello! My name is Test User.\"",
-      "timestamp": "2025-07-11T16:56:56.578825"
-    },
-    {
-      "role": "user",
       "content": "hi",
       "timestamp": "2025-07-11T17:24:29.444539"
     },
@@ -99,6 +79,26 @@
       "role": "assistant",
       "content": "You just said \"hi\" - a simple greeting.\n\nI responded with a detailed overview of my capabilities, but I could have kept it simpler. \n\nWould you like to work with any particular part of Salesforce or Jira today?",
       "timestamp": "2025-07-12T14:47:22.105105"
+    },
+    {
+      "role": "user",
+      "content": "hi",
+      "timestamp": "2025-07-12T14:48:48.136015"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi! \ud83d\udc4b",
+      "timestamp": "2025-07-12T14:48:48.136062"
+    },
+    {
+      "role": "user",
+      "content": "tell me about the weather",
+      "timestamp": "2025-07-12T14:56:05.470538"
+    },
+    {
+      "role": "assistant",
+      "content": "I am not able to provide weather information. I am specifically designed to work with Salesforce and Jira systems. I can help you with tasks like:\n\n\u2022 Looking up Salesforce accounts, opportunities, or cases\n\u2022 Creating activities/tasks in Salesforce\n\u2022 Working with Jira issues and projects\n\u2022 Analyzing business data from these systems\n\nBut I cannot provide weather information or other data outside of these systems. You would need to check a weather service or app for that information.\n\nIs there anything you'd like to know about your Salesforce or Jira data?",
+      "timestamp": "2025-07-12T14:56:05.470625"
     }
   ]
 }
