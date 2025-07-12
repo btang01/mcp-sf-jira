@@ -183,8 +183,12 @@ class MCPWebServer:
         # Simple memory system - just use basic caching with file persistence
         self.cache_file = "logs/entity_cache.json"
         self.context_file = "logs/session_context.json"
+        self.conversation_file = "logs/conversation_history.json"
         self.entity_cache = self._load_cache_from_file(self.cache_file)
         self.session_context = self._load_cache_from_file(self.context_file)
+        
+        # Initialize conversation history with proper persistence
+        self.conversation_history = self._load_conversation_history()
         
         # Thinking capture storage
         self.thinking_sessions: Dict[str, List[ThinkingStep]] = {}
@@ -548,6 +552,30 @@ class MCPWebServer:
                     "last_step_time": steps[-1].timestamp if steps else None
                 })
             return {"sessions": sessions}
+        
+        @self.app.delete("/api/thinking/{session_id}")
+        async def delete_thinking_session(session_id: str):
+            """Delete a specific thinking session"""
+            if session_id in self.thinking_sessions:
+                del self.thinking_sessions[session_id]
+                return {
+                    "success": True,
+                    "message": f"Thinking session {session_id} deleted successfully",
+                    "remaining_sessions": len(self.thinking_sessions)
+                }
+            else:
+                raise HTTPException(status_code=404, detail="Thinking session not found")
+        
+        @self.app.delete("/api/thinking-sessions")
+        async def delete_all_thinking_sessions():
+            """Delete all thinking sessions"""
+            session_count = len(self.thinking_sessions)
+            self.thinking_sessions.clear()
+            return {
+                "success": True,
+                "message": f"All {session_count} thinking sessions deleted successfully",
+                "remaining_sessions": 0
+            }
 
         @self.app.get("/api/health")
         async def health_check():
@@ -754,18 +782,18 @@ class MCPWebServer:
         if self.strands_agent:
             try:
                 # Use Strands agent for chat processing with memory
-                if hasattr(self.strands_agent, 'invoke_async'):
-                    response_text = await self.strands_agent.invoke_async(query)
-                elif callable(self.strands_agent):
-                    response_text = await self.strands_agent(query)
-                else:
-                    raise Exception("No valid invocation method found")
+                # The Strands Agent should handle conversation memory automatically
+                logger.info("🔄 Processing chat through Strands agent with automatic memory...")
                 
-                logger.info("✅ Chat processed through Strands agent with memory")
+                # Call the Strands agent directly - it handles memory internally
+                response_text = await self.strands_agent.run(query)
+                
+                logger.info("✅ Chat processed through Strands agent with automatic memory")
                 return str(response_text)
                 
             except Exception as e:
                 logger.warning(f"Strands agent failed ({str(e)}), falling back to Anthropic API")
+                logger.warning(f"Available Strands agent methods: {[m for m in dir(self.strands_agent) if not m.startswith('_')]}")
                 # Fall through to Anthropic fallback
         
         # Fallback to regular Anthropic API processing
@@ -1323,6 +1351,39 @@ When querying data, always include custom fields in your SOQL queries to provide
         
         return ""
     
+    def _load_conversation_history(self) -> List[Dict[str, Any]]:
+        """Load conversation history from file"""
+        try:
+            if os.path.exists(self.conversation_file):
+                with open(self.conversation_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    conversations = data.get('conversations', [])
+                    logger.info(f"Loaded {len(conversations)} conversation messages")
+                    return conversations
+            else:
+                logger.info("No existing conversation history found")
+                return []
+        except Exception as e:
+            logger.error(f"Failed to load conversation history: {e}")
+            return []
+    
+    def _save_conversation_history(self):
+        """Save conversation history to file"""
+        try:
+            data = {
+                'conversations': self.conversation_history,
+                'last_updated': datetime.now().isoformat(),
+                'total_messages': len(self.conversation_history)
+            }
+            
+            with open(self.conversation_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                
+            logger.debug(f"Saved {len(self.conversation_history)} conversation messages")
+            
+        except Exception as e:
+            logger.error(f"Failed to save conversation history: {e}")
+
     def _load_cache_from_file(self, file_path: str) -> Dict[str, Any]:
         """Load cache from file with error handling"""
         try:

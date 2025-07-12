@@ -74,6 +74,47 @@ const MemoryPanel = ({ onThinking, onActivity }) => {
     }
   };
 
+  // Delete a specific thinking session
+  const deleteThinkingSession = async (sessionId) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/thinking/${sessionId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        // Refresh the sessions list
+        await fetchThinkingSessions();
+        // Clear selected session if it was deleted
+        if (selectedSession?.session_id === sessionId) {
+          setSelectedSession(null);
+        }
+        onActivity?.(`Deleted thinking session ${sessionId.split('_')[1]}`);
+      }
+    } catch (err) {
+      console.error('Failed to delete thinking session:', err);
+    }
+  };
+
+  // Delete all thinking sessions
+  const deleteAllThinkingSessions = async () => {
+    if (!window.confirm('Are you sure you want to delete all thinking sessions? This cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/thinking-sessions`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        await fetchThinkingSessions();
+        setSelectedSession(null);
+        onActivity?.(data.message);
+      }
+    } catch (err) {
+      console.error('Failed to delete all thinking sessions:', err);
+    }
+  };
+
   // Get thinking step icon and color
   const getThinkingStepIcon = (type) => {
     switch (type) {
@@ -419,19 +460,32 @@ const MemoryPanel = ({ onThinking, onActivity }) => {
       {/* Thinking Process Visualization */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-4 border-b border-gray-200">
-          <button
-            onClick={() => toggleSection('thinking')}
-            className="flex items-center justify-between w-full text-left"
-          >
-            <div className="flex items-center space-x-2">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => toggleSection('thinking')}
+              className="flex items-center space-x-2 text-left"
+            >
               <Brain className="h-5 w-5 text-indigo-600" />
               <h3 className="text-lg font-semibold text-gray-900">Claude's Thinking Process</h3>
               <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-xs font-medium">
                 {thinkingSessions.length} sessions
               </span>
-            </div>
-            {expandedSections.thinking ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-          </button>
+              {expandedSections.thinking ? <EyeOff className="h-5 w-5 ml-2" /> : <Eye className="h-5 w-5 ml-2" />}
+            </button>
+            
+            {thinkingSessions.length > 0 && (
+              <button
+                onClick={deleteAllThinkingSessions}
+                className="flex items-center space-x-1 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors text-sm"
+                title="Delete all thinking sessions"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>Clear All</span>
+              </button>
+            )}
+          </div>
         </div>
         
         {expandedSections.thinking && (
@@ -449,15 +503,17 @@ const MemoryPanel = ({ onThinking, onActivity }) => {
                   {thinkingSessions.slice(-5).map((session, index) => (
                     <div 
                       key={session.session_id}
-                      className={`border rounded-lg p-3 cursor-pointer transition-all hover:shadow-md ${
+                      className={`border rounded-lg p-3 transition-all hover:shadow-md ${
                         selectedSession?.session_id === session.session_id 
                           ? 'border-indigo-300 bg-indigo-50' 
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
-                      onClick={() => fetchThinkingSteps(session.session_id)}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
+                        <div 
+                          className="flex items-center space-x-3 cursor-pointer flex-1"
+                          onClick={() => fetchThinkingSteps(session.session_id)}
+                        >
                           <div className="bg-indigo-100 p-2 rounded-full">
                             <Brain className="h-4 w-4 text-indigo-600" />
                           </div>
@@ -470,14 +526,28 @@ const MemoryPanel = ({ onThinking, onActivity }) => {
                             </p>
                           </div>
                         </div>
-                        <div className="text-right text-xs text-gray-500">
-                          <div>{formatTimestamp(session.first_step_time)}</div>
-                          <div className="flex items-center space-x-1 mt-1">
-                            <Clock className="h-3 w-3" />
-                            <span>
-                              {Math.round((new Date(session.last_step_time) - new Date(session.first_step_time)) / 1000)}s
-                            </span>
+                        <div className="flex items-center space-x-2">
+                          <div className="text-right text-xs text-gray-500">
+                            <div>{formatTimestamp(session.first_step_time)}</div>
+                            <div className="flex items-center space-x-1 mt-1">
+                              <Clock className="h-3 w-3" />
+                              <span>
+                                {Math.round((new Date(session.last_step_time) - new Date(session.first_step_time)) / 1000)}s
+                              </span>
+                            </div>
                           </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteThinkingSession(session.session_id);
+                            }}
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                            title="Delete this thinking session"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
                     </div>
