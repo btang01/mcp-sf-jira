@@ -171,6 +171,121 @@ async def jira_create_issue(project_key: str, summary: str, description: str = "
         logger.error(f"Create issue failed: {e}")
         return f"Error creating issue: {str(e)}"
 
+@mcp.tool()
+async def jira_get_projects(max_results: int = 10) -> str:
+    """Get list of Jira projects"""
+    try:
+        jira = get_jira_connection()
+        projects = jira.projects()
+        
+        result = []
+        for project in projects[:max_results]:
+            result.append({
+                "key": project.key,
+                "name": project.name,
+                "id": project.id,
+                "lead": str(project.lead) if hasattr(project, 'lead') and project.lead else "Unknown"
+            })
+        
+        return json.dumps({"projects": result, "total": len(result)}, indent=2)
+    except Exception as e:
+        logger.error(f"Get projects failed: {e}")
+        return f"Error getting projects: {str(e)}"
+
+@mcp.tool()
+async def jira_add_comment(issue_key: str, comment: str) -> str:
+    """Add a comment to a Jira issue"""
+    try:
+        jira = get_jira_connection()
+        issue = jira.issue(issue_key)
+        
+        new_comment = jira.add_comment(issue, comment)
+        
+        result = {
+            "comment_id": new_comment.id,
+            "issue_key": issue_key,
+            "comment": comment,
+            "author": str(new_comment.author),
+            "created": str(new_comment.created)
+        }
+        
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        logger.error(f"Add comment failed: {e}")
+        return f"Error adding comment to {issue_key}: {str(e)}"
+
+@mcp.tool()
+async def jira_update_issue(issue_key: str, fields: Dict[str, Any]) -> str:
+    """Update a Jira issue with new field values"""
+    try:
+        jira = get_jira_connection()
+        issue = jira.issue(issue_key)
+        
+        # Update the issue
+        issue.update(fields=fields)
+        
+        # Get updated issue to return current state
+        updated_issue = jira.issue(issue_key)
+        
+        result = {
+            "key": updated_issue.key,
+            "summary": updated_issue.fields.summary,
+            "status": str(updated_issue.fields.status),
+            "updated_fields": fields,
+            "last_updated": str(updated_issue.fields.updated)
+        }
+        
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        logger.error(f"Update issue failed: {e}")
+        return f"Error updating issue {issue_key}: {str(e)}"
+
+@mcp.tool()
+async def jira_get_issue_types(project_key: str = None) -> str:
+    """Get available issue types for a project or all issue types"""
+    try:
+        jira = get_jira_connection()
+        
+        if project_key:
+            # Get issue types for specific project
+            project = jira.project(project_key)
+            issue_types = project.issueTypes
+        else:
+            # Get all issue types
+            issue_types = jira.issue_types()
+        
+        result = []
+        for issue_type in issue_types:
+            result.append({
+                "id": issue_type.id,
+                "name": issue_type.name,
+                "description": getattr(issue_type, 'description', '') or ""
+            })
+        
+        return json.dumps({"issue_types": result, "total": len(result)}, indent=2)
+    except Exception as e:
+        logger.error(f"Get issue types failed: {e}")
+        return f"Error getting issue types: {str(e)}"
+
+@mcp.tool()
+async def jira_connection_info() -> str:
+    """Get Jira connection information"""
+    try:
+        jira = get_jira_connection()
+        server_info = jira.server_info()
+        
+        result = {
+            "server_url": jira.server_url,
+            "server_title": server_info.get('serverTitle', 'Unknown'),
+            "version": server_info.get('version', 'Unknown'),
+            "connected": True
+        }
+        
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        logger.error(f"Connection info failed: {e}")
+        return f"Error getting connection info: {str(e)}"
+
 # HTTP mode support
 class ToolRequest(BaseModel):
     jsonrpc: str = "2.0"
@@ -214,31 +329,52 @@ if os.getenv('MCP_SERVER_PORT'):
             tool_name = request.params.get("name")
             arguments = request.params.get("arguments", {})
             
+            # Check if tool exists
+            available_tools = [
+                "jira_search_issues", "jira_get_issue", "jira_create_issue",
+                "jira_get_projects", "jira_add_comment", "jira_update_issue",
+                "jira_get_issue_types", "jira_connection_info"
+            ]
+            
+            if tool_name not in available_tools:
+                logger.error(f"HTTP tool execution error: Unknown tool: {tool_name}")
+                return ToolResponse(
+                    error={"code": -32601, "message": f"Unknown tool: {tool_name}"},
+                    id=request.id
+                )
+            
             # Use the MCP server's call_tool method
             result = await mcp.call_tool(tool_name, arguments)
             
-            # Handle the MCP result properly
-            if isinstance(result, tuple) and len(result) >= 2:
-                # MCP returns a tuple (content_list, metadata)
-                content_list = result[0]
+            # Handle the MCP result properly - fix the tuple issue
+            result_text = ""
+            
+            if isinstance(result, CallToolResult):
+                # Standard MCP CallToolResult
+                if result.content and len(result.content) > 0:
+                    first_content = result.content[0]
+                    if isinstance(first_content, TextContent):
+                        result_text = first_content.text
+                    else:
+                        result_text = str(first_content)
+                else:
+                    result_text = "No content returned"
+            elif isinstance(result, tuple):
+                # Handle tuple response (content_list, metadata)
+                content_list = result[0] if len(result) > 0 else []
                 if isinstance(content_list, list) and len(content_list) > 0:
                     first_content = content_list[0]
-                    if hasattr(first_content, 'text'):
+                    if isinstance(first_content, TextContent):
+                        result_text = first_content.text
+                    elif hasattr(first_content, 'text'):
                         result_text = first_content.text
                     else:
                         result_text = str(first_content)
                 else:
                     result_text = str(content_list)
-            elif hasattr(result, 'content') and result.content:
-                # Extract text from MCP result
-                if isinstance(result.content, list) and len(result.content) > 0:
-                    first_content = result.content[0]
-                    if hasattr(first_content, 'text'):
-                        result_text = first_content.text
-                    else:
-                        result_text = str(first_content)
-                else:
-                    result_text = str(result.content)
+            elif isinstance(result, str):
+                # Direct string result
+                result_text = result
             else:
                 # Fallback to string representation
                 result_text = str(result)

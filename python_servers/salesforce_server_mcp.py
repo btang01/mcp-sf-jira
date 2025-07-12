@@ -139,6 +139,24 @@ async def salesforce_query_accounts(limit: int = 10, where_clause: str = "") -> 
         return f"Error querying accounts: {str(e)}"
 
 @mcp.tool()
+async def salesforce_query_activities(limit: int = 10, where_clause: str = "") -> str:
+    """Query Salesforce activities (Tasks)"""
+    try:
+        base_query = "SELECT Id, Subject, Status, Priority, ActivityDate, WhatId, What.Name, WhoId, Who.Name FROM Task"
+        
+        if where_clause:
+            query = f"{base_query} WHERE {where_clause} LIMIT {limit}"
+        else:
+            query = f"{base_query} ORDER BY CreatedDate DESC LIMIT {limit}"
+        
+        sf_conn = get_salesforce_connection()
+        result = sf_conn.query(query)
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        logger.error(f"Activity query failed: {e}")
+        return f"Error querying activities: {str(e)}"
+
+@mcp.tool()
 async def salesforce_query_contacts(limit: int = 10, where_clause: str = "") -> str:
     """Query Salesforce contacts"""
     try:
@@ -175,7 +193,8 @@ async def salesforce_connection_info() -> str:
 async def salesforce_query_opportunities(limit: int = 10, where_clause: str = "") -> str:
     """Query Salesforce opportunities"""
     try:
-        base_query = "SELECT Id, Name, Amount, StageName, CloseDate, AccountId, Account.Name, Jira_Project_Key__c, Implementation_Status__c FROM Opportunity"
+        # Use only standard fields that exist in all Salesforce orgs
+        base_query = "SELECT Id, Name, Amount, StageName, CloseDate, AccountId, Account.Name FROM Opportunity"
         
         if where_clause:
             query = f"{base_query} WHERE {where_clause} LIMIT {limit}"
@@ -193,7 +212,8 @@ async def salesforce_query_opportunities(limit: int = 10, where_clause: str = ""
 async def salesforce_query_cases(limit: int = 10, where_clause: str = "") -> str:
     """Query Salesforce cases"""
     try:
-        base_query = "SELECT Id, CaseNumber, Subject, Status, Priority, AccountId, Account.Name, Jira_Issue_Key__c FROM Case"
+        # Use only standard fields that exist in all Salesforce orgs
+        base_query = "SELECT Id, CaseNumber, Subject, Status, Priority, AccountId, Account.Name FROM Case"
         
         if where_clause:
             query = f"{base_query} WHERE {where_clause} LIMIT {limit}"
@@ -208,18 +228,19 @@ async def salesforce_query_cases(limit: int = 10, where_clause: str = "") -> str
         return f"Error querying cases: {str(e)}"
 
 @mcp.tool()
-async def salesforce_create_activity(subject: str, account_id: str, related_systems: str = "", activity_type: str = "Call") -> str:
+async def salesforce_create_activity(subject: str, account_id: str, description: str = "", priority: str = "Normal") -> str:
     """Create a Salesforce activity (Task)"""
     try:
         sf_conn = get_salesforce_connection()
         
+        # Use only standard Task fields that exist in all Salesforce orgs
         activity_data = {
             'Subject': subject,
-            'WhatId': account_id,  # Link to Account
+            'WhatId': account_id,  # Link to Account or Opportunity
             'ActivityDate': datetime.now().strftime('%Y-%m-%d'),
-            'Status': 'Completed',
-            'Type': activity_type,
-            'Related_Systems__c': related_systems
+            'Status': 'Not Started',
+            'Priority': priority,
+            'Description': description
         }
         
         result = sf_conn.Task.create(activity_data)
@@ -456,31 +477,55 @@ if os.getenv('MCP_SERVER_PORT'):
             tool_name = request.params.get("name")
             arguments = request.params.get("arguments", {})
             
+            # Check if tool exists
+            available_tools = [
+                "salesforce_query", "salesforce_create", "salesforce_query_accounts",
+                "salesforce_query_contacts", "salesforce_connection_info", 
+                "salesforce_query_opportunities", "salesforce_query_cases",
+                "salesforce_create_activity", "salesforce_update_record",
+                "salesforce_get_record_fields", "salesforce_search_records",
+                "salesforce_query_activities"
+            ]
+            
+            if tool_name not in available_tools:
+                logger.error(f"HTTP tool execution error: Unknown tool: {tool_name}")
+                return ToolResponse(
+                    error={"code": -32601, "message": f"Unknown tool: {tool_name}"},
+                    id=request.id
+                )
+            
             # Use the MCP server's call_tool method
             result = await mcp.call_tool(tool_name, arguments)
             
-            # Handle the MCP result properly
-            if isinstance(result, tuple) and len(result) >= 2:
-                # MCP returns a tuple (content_list, metadata)
-                content_list = result[0]
+            # Handle the MCP result properly - fix the tuple issue
+            result_text = ""
+            
+            if isinstance(result, CallToolResult):
+                # Standard MCP CallToolResult
+                if result.content and len(result.content) > 0:
+                    first_content = result.content[0]
+                    if isinstance(first_content, TextContent):
+                        result_text = first_content.text
+                    else:
+                        result_text = str(first_content)
+                else:
+                    result_text = "No content returned"
+            elif isinstance(result, tuple):
+                # Handle tuple response (content_list, metadata)
+                content_list = result[0] if len(result) > 0 else []
                 if isinstance(content_list, list) and len(content_list) > 0:
                     first_content = content_list[0]
-                    if hasattr(first_content, 'text'):
+                    if isinstance(first_content, TextContent):
+                        result_text = first_content.text
+                    elif hasattr(first_content, 'text'):
                         result_text = first_content.text
                     else:
                         result_text = str(first_content)
                 else:
                     result_text = str(content_list)
-            elif hasattr(result, 'content') and result.content:
-                # Extract text from MCP result
-                if isinstance(result.content, list) and len(result.content) > 0:
-                    first_content = result.content[0]
-                    if hasattr(first_content, 'text'):
-                        result_text = first_content.text
-                    else:
-                        result_text = str(first_content)
-                else:
-                    result_text = str(result.content)
+            elif isinstance(result, str):
+                # Direct string result
+                result_text = result
             else:
                 # Fallback to string representation
                 result_text = str(result)
