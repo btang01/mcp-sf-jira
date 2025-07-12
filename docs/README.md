@@ -38,12 +38,6 @@ Welcome to the MCP Demo System documentation! Here's everything you need to get 
 
 ---
 
-## 📁 **Archive**
-
-The `archive/` folder contains older documentation that has been consolidated into the main guides above. These files are kept for reference but are no longer actively maintained.
-
----
-
 ## 🎯 **Quick Start Path**
 
 1. **New Users**: Start with [SETUP.md](SETUP.md) to get the system running
