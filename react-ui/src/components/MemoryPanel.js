@@ -293,9 +293,9 @@ const MemoryPanel = ({ onThinking, onActivity }) => {
                         {formatTimestamp(message.timestamp)}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-700 line-clamp-3">
+                    <div className="text-sm text-gray-700 whitespace-pre-wrap">
                       {message.content}
-                    </p>
+                    </div>
                   </div>
                 ))}
               </div>
