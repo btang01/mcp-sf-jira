@@ -58,20 +58,28 @@ logger = logging.getLogger(__name__)
 if STRANDS_AVAILABLE:
     try:
         # Import telemetry components
-        from strands.telemetry import TelemetryClient, ConsoleExporter
+        from strands.telemetry import StrandsTelemetry, get_tracer, Tracer
         
-        # Initialize telemetry with console output for debugging
-        telemetry_client = TelemetryClient()
-        console_exporter = ConsoleExporter()
-        telemetry_client.add_exporter(console_exporter)
+        # Initialize telemetry with console output
+        telemetry = StrandsTelemetry()
+        telemetry.setup_console_exporter()  # Enable console output for telemetry
         
-        # Enable telemetry
-        telemetry_client.enable()
+        # Get a tracer for this application (no arguments)
+        tracer = get_tracer()
         
-        logger.info("✅ Strands telemetry enabled with console output")
+        logger.info("✅ Strands telemetry enabled with console exporter")
+        logger.info("Telemetry will trace agent decisions and tool calls")
+        logger.info("Note: Telemetry output will appear in console/logs")
+        
+        # Log tracer info
+        logger.info(f"Tracer type: {type(tracer)}")
+        logger.info(f"Tracer methods: {[m for m in dir(tracer) if not m.startswith('_')]}")
     except Exception as e:
         logger.warning(f"Strands telemetry setup failed: {e}")
         logger.info("Continuing without telemetry")
+        tracer = None
+else:
+    tracer = None
 
 # Pydantic models
 class ToolCallRequest(BaseModel):
@@ -623,35 +631,11 @@ class MCPWebServer:
     
     async def _register_mcp_tools_with_agent(self):
         """Register MCP tools with Strands agent"""
-        if not self.strands_agent or not STRANDS_AVAILABLE:
-            logger.info("Strands agent not available, skipping tool registration")
-            return
-        
-        try:
-            logger.info("🔄 Registering MCP tools with Strands agent...")
-            
-            # Create Strands tool wrappers for each MCP tool
-            registered_count = 0
-            
-            for tool_info in self.available_tools:
-                tool_name = tool_info['name']
-                service = self.tool_to_server.get(tool_name)
-                
-                if service:
-                    # Create a Strands tool wrapper
-                    strands_tool = self._create_strands_tool_wrapper(tool_name, service, tool_info)
-                    
-                    # Register with agent
-                    self.strands_agent.add_tool(strands_tool)
-                    registered_count += 1
-                    logger.debug(f"Registered {tool_name} from {service} service")
-            
-            logger.info(f"✅ Registered {registered_count} MCP tools with Strands agent")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to register MCP tools with Strands agent: {e}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
+        # Note: Strands Agent doesn't support dynamic tool addition
+        # Tools must be passed during Agent initialization
+        # The agent will use the Anthropic API directly with the available_tools
+        logger.info("Strands agent will use MCP tools via Anthropic API")
+        logger.info(f"Available tools for agent: {len(self.available_tools)} tools")
     
     def _create_strands_tool_wrapper(self, tool_name: str, service: str, tool_info: Dict[str, Any]):
         """Create a Strands tool wrapper for an MCP tool"""

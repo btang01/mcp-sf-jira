@@ -2,16 +2,6 @@
   "conversation_history": [
     {
       "role": "user",
-      "content": "yes",
-      "timestamp": "2025-07-12T15:47:01.778352"
-    },
-    {
-      "role": "assistant",
-      "content": "Please start a new conversation to get a fresh context. I will see you there with a clean slate and no cached entities!",
-      "timestamp": "2025-07-12T15:47:01.778379"
-    },
-    {
-      "role": "user",
       "content": "what did we talk about earlier?",
       "timestamp": "2025-07-12T15:56:50.279167"
     },
@@ -99,6 +89,16 @@
       "role": "assistant",
       "content": "I'll query Salesforce to find the smallest opportunity by amount:\n\n---\n\nThis is interesting! Let me check the linked Jira project since we see a Jira Project Key (**$1**):\n\n---\n\nLet me also check if there are any related cases since the Jira issue mentions a case ID:\n\nLet me break down what we found about this smallest opportunity:\n\n\ud83d\udcb0 **Opportunity Details:**\n- **Name**: Big Opps (ironically named!)\n- **Amount**: $10,000 (smallest amount in system)\n- **Stage**: Id. Decision Makers\n- **Probability**: 60%\n- **Close Date**: July 31, 2025\n- **Implementation Status**: At Risk \u26a0\ufe0f\n- **Account**: Ballmart\n\n\ud83d\udea8 **Risk Factors:**\n1. Implementation Status is \"At Risk\"\n2. There's a linked Jira issue (TECH-1) for database performance problems\n3. The Jira issue is still \"To Do\" and unassigned\n4. The database performance issues are specifically affecting Ballmart integration\n\n\ud83d\udcca **Technical Context:**\n- There's an open Jira ticket (TECH-1) for database performance optimization\n- The issue was created on July 10, 2025\n- It's currently unassigned and in \"To Do\" status\n- This technical issue is likely contributing to the \"At Risk\" status\n\n\u26a1 **Recommendations:**\n1. The Jira issue needs immediate attention - it's blocking implementation\n2. Database performance issues should be addressed to reduce implementation risk\n3. Consider assigning the Jira ticket to accelerate resolution\n4. May need to create an activity to track business impact of technical delays\n\nWould you like me to:\n1. Create an activity to track this situation?\n2. Look for other opportunities with Ballmart?\n3. Search for any related cases?\n4. Check for any comments or updates on the Jira issue?",
       "timestamp": "2025-07-12T16:30:13.531725"
+    },
+    {
+      "role": "user",
+      "content": "What opportunities are at risk?",
+      "timestamp": "2025-07-12T16:53:42.752741"
+    },
+    {
+      "role": "assistant",
+      "content": "I'll query Salesforce for opportunities with Implementation_Status__c = 'At Risk':\n\n---\n\nLet me check the related Jira issues for both opportunities to understand the technical risks:\n\n\ud83d\udcca **At-Risk Opportunities Analysis:**\n\n1. **TechCorp Platform Expansion** ($500,000) \ud83d\udea8\n   - Stage: Negotiation/Review\n   - Close Date: July 25, 2025\n   - Jira Project Key: IMPL\n   - **Risk Factors:**\n     - High value opportunity ($500,000)\n     - Close date approaching (July 25, 2025)\n     - Implementation project exists (IMPL) but no active issues found\n     - No account association found (potential data issue)\n\n2. **Big Opps** ($10,000) \u26a0\ufe0f\n   - Account: Ballmart\n   - Stage: Id. Decision Makers\n   - Close Date: July 31, 2025\n   - **Risk Factors:**\n     - Active technical issue (TECH-1)\n     - Database performance problems affecting Ballmart integration\n     - Jira issue is unassigned and still in \"To Do\" status\n     - Technical blocker needs immediate attention\n\n\ud83d\udd0d **Root Cause Analysis:**\n- The smaller opportunity (Big Opps) has a clear technical blocker with the database performance issue\n- The larger opportunity (TechCorp) has an implementation project but no visible issues - needs investigation\n- Both opportunities have close dates in July 2025, creating time pressure\n\n\ud83d\udccb **Recommended Actions:**\n1. For TechCorp Platform Expansion:\n   - Investigate missing account association\n   - Review IMPL project status\n   - Create activity to track implementation blockers\n\n2. For Big Opps (Ballmart):\n   - Prioritize TECH-1 database optimization\n   - Assign the unresolved Jira ticket\n   - Track implementation progress closely\n\nWould you like me to:\n1. Create activities to track either of these situations?\n2. Look up any related cases?\n3. Investigate more details about either opportunity?\n4. Search for additional related Jira issues?",
+      "timestamp": "2025-07-12T16:53:42.752758"
     }
   ]
 }
