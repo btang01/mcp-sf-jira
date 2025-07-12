@@ -2,26 +2,6 @@
   "conversation_history": [
     {
       "role": "user",
-      "content": "hi",
-      "timestamp": "2025-07-11T16:56:38.315424"
-    },
-    {
-      "role": "assistant",
-      "content": "Hello! I'm here to help you work with Salesforce and Jira systems. I can assist you with:\n\n**1. Searching and managing Salesforce:**\n\u2022 Accounts\n\u2022 Contacts\n\u2022 Opportunities\n\u2022 Cases\n\u2022 Activities\n\n**2. Working with Jira:**\n\u2022 Searching issues\n\u2022 Creating new issues\n\u2022 Getting issue details\n\nWhat would you like to do? Feel free to ask about specific records, create new entries, or search for information!",
-      "timestamp": "2025-07-11T16:56:38.315457"
-    },
-    {
-      "role": "user",
-      "content": "What did I just say?",
-      "timestamp": "2025-07-11T16:56:40.584665"
-    },
-    {
-      "role": "assistant",
-      "content": "You just said \"hi\" in your most recent message.",
-      "timestamp": "2025-07-11T16:56:40.584677"
-    },
-    {
-      "role": "user",
       "content": "what did i just say",
       "timestamp": "2025-07-11T16:56:48.031593"
     },
@@ -99,6 +79,26 @@
       "role": "assistant",
       "content": "I apologize, but I cannot delete the Ballmart account or any other records. As I mentioned, I don't have access to any deletion functions in my available tools. Here are my only capabilities for working with Salesforce records:\n\n**1. **READ operations:****\n\u2022 Query/search records\n\u2022 Get record fields\n\u2022 Get connection info\n\n**2. **CREATE operations:****\n\u2022 Create new records\n\u2022 Create activities\n\n**3. **UPDATE operations:****\n\u2022 Update existing records\n\nThere is no deletion functionality available to me, which is a common security practice to prevent accidental or unauthorized deletion of important business data. \n\nIf you need to delete the Ballmart account, you would need to:\n**1. Log into Salesforce directly with appropriate permissions**\n**2. Work with your Salesforce administrator**\n**3. Follow your organization's proper data management procedures**\n\nWould you like to do something else with the Ballmart account using the tools I do have available? I can:\n\u2022 Look up more information about it\n\u2022 Create an activity related to it\n\u2022 Update certain fields if needed",
       "timestamp": "2025-07-12T02:26:08.961907"
+    },
+    {
+      "role": "user",
+      "content": "hi",
+      "timestamp": "2025-07-12T14:47:12.855957"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! I'm here to help you work with your Salesforce and Jira systems. I can:\n\n**1. **Search and analyze:****\n\u2022 Opportunities\n\u2022 Accounts\n\u2022 Cases\n\u2022 Activities\n\u2022 Jira issues\n\n**2. **Create new:****\n\u2022 Activities/Tasks\n\u2022 Jira issues\n\u2022 Comments\n   \n**3. **Update existing:****\n\u2022 Salesforce records\n\u2022 Jira issues\n\nWhat would you like to do? Some common requests include:\n\u2022 Looking up at-risk opportunities\n\u2022 Creating activities for accounts\n\u2022 Checking case status\n\u2022 Investigating Jira issues\n\nHow can I assist you today?",
+      "timestamp": "2025-07-12T14:47:12.855976"
+    },
+    {
+      "role": "user",
+      "content": "what did i just say",
+      "timestamp": "2025-07-12T14:47:22.105076"
+    },
+    {
+      "role": "assistant",
+      "content": "You just said \"hi\" - a simple greeting.\n\nI responded with a detailed overview of my capabilities, but I could have kept it simpler. \n\nWould you like to work with any particular part of Salesforce or Jira today?",
+      "timestamp": "2025-07-12T14:47:22.105105"
     }
   ]
 }

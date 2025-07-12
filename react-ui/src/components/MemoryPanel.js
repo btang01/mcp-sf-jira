@@ -28,7 +28,7 @@ const MemoryPanel = ({ onThinking, onActivity }) => {
     onThinking?.(true);
 
     try {
-      const response = await fetch('/api/memory/status');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/memory/status`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
