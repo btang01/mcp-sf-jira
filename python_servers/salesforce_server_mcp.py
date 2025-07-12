@@ -249,6 +249,65 @@ async def salesforce_create_activity(subject: str, account_id: str, description:
         logger.error(f"Activity creation failed: {e}")
         return f"Error creating activity: {str(e)}"
 
+@mcp.tool()
+async def salesforce_delete_activity(activity_id: str) -> str:
+    """Delete a Salesforce activity (Task) by ID
+    
+    Args:
+        activity_id: The ID of the Task/Activity to delete (starts with '00T')
+    
+    Returns:
+        Success message or error details
+    """
+    try:
+        sf_conn = get_salesforce_connection()
+        
+        # First, get the activity details before deletion for confirmation
+        try:
+            activity_query = f"SELECT Id, Subject, Status, Priority, ActivityDate, WhatId, What.Name, WhoId, Who.Name FROM Task WHERE Id = '{activity_id}'"
+            activity_result = sf_conn.query(activity_query)
+            
+            if activity_result['totalSize'] == 0:
+                return f"❌ Activity not found: No Task with ID '{activity_id}' exists"
+            
+            activity_details = activity_result['records'][0]
+            
+        except Exception as query_error:
+            logger.warning(f"Could not query activity before deletion: {query_error}")
+            activity_details = {"Id": activity_id, "Subject": "Unknown"}
+        
+        # Perform the deletion
+        result = sf_conn.Task.delete(activity_id)
+        
+        if result == 204:  # HTTP 204 No Content indicates successful deletion
+            return json.dumps({
+                "success": True,
+                "message": f"✅ Successfully deleted activity '{activity_details.get('Subject', 'Unknown')}'",
+                "deleted_activity": activity_details,
+                "activity_id": activity_id,
+                "timestamp": datetime.now().isoformat()
+            }, indent=2)
+        else:
+            return json.dumps({
+                "success": False,
+                "message": f"❌ Unexpected response from Salesforce: {result}",
+                "activity_id": activity_id
+            }, indent=2)
+            
+    except Exception as e:
+        logger.error(f"Activity deletion failed: {e}")
+        error_msg = str(e).lower()
+        
+        # Provide helpful error messages
+        if "invalid id" in error_msg or "malformed id" in error_msg:
+            return f"❌ Delete Error: Invalid activity ID '{activity_id}'. Task IDs should start with '00T'.\nOriginal error: {str(e)}"
+        elif "insufficient access rights" in error_msg or "delete not allowed" in error_msg:
+            return f"❌ Delete Error: Insufficient permissions to delete this activity.\nOriginal error: {str(e)}"
+        elif "entity is deleted" in error_msg:
+            return f"❌ Delete Error: Activity '{activity_id}' has already been deleted.\nOriginal error: {str(e)}"
+        else:
+            return f"❌ Delete Error: {str(e)}"
+
 
 @mcp.tool()
 async def salesforce_update_record(sobject_type: str, record_id: str, data: Dict[str, Any]) -> str:
@@ -483,9 +542,9 @@ if os.getenv('MCP_SERVER_PORT'):
                 "salesforce_query", "salesforce_create", "salesforce_query_accounts",
                 "salesforce_query_contacts", "salesforce_connection_info", 
                 "salesforce_query_opportunities", "salesforce_query_cases",
-                "salesforce_create_activity", "salesforce_update_record",
-                "salesforce_get_record_fields", "salesforce_search_records",
-                "salesforce_query_activities"
+                "salesforce_create_activity", "salesforce_delete_activity", 
+                "salesforce_update_record", "salesforce_get_record_fields", 
+                "salesforce_search_records", "salesforce_query_activities"
             ]
             
             if tool_name not in available_tools:
