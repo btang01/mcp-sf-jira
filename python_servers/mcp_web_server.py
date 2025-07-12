@@ -187,8 +187,14 @@ class MCPWebServer:
         self.entity_cache = self._load_cache_from_file(self.cache_file)
         self.session_context = self._load_cache_from_file(self.context_file)
         
-        # Initialize conversation history with proper persistence
-        self.conversation_history = self._load_conversation_history()
+        # Initialize conversation history from session context
+        self.conversation_history = self.session_context.get('conversation_history', [])
+        logger.info(f"Session context keys: {list(self.session_context.keys())}")
+        if self.conversation_history:
+            logger.info(f"✅ Loaded {len(self.conversation_history)} conversation messages from session context")
+            logger.info(f"Recent messages: {[msg.get('content', '')[:30] + '...' for msg in self.conversation_history[-3:]]}")
+        else:
+            logger.info("❌ No existing conversation history found in session context")
         
         # Thinking capture storage
         self.thinking_sessions: Dict[str, List[ThinkingStep]] = {}
@@ -485,7 +491,7 @@ class MCPWebServer:
 
         @self.app.post("/api/chat-with-thinking")
         async def chat_with_thinking(request: ChatRequest) -> ChatResponse:
-            """Enhanced chat endpoint that captures thinking process"""
+            """Enhanced chat endpoint that captures thinking process and maintains conversation history"""
             start_time = datetime.now()
             session_id = f"session_{int(start_time.timestamp() * 1000)}"
             
@@ -500,12 +506,38 @@ class MCPWebServer:
                         error="No AI services available"
                     )
                 
+                # Store user message in conversation history BEFORE processing
+                if 'conversation_history' not in self.session_context:
+                    self.session_context['conversation_history'] = []
+                
+                self.session_context['conversation_history'].append({
+                    'role': 'user', 
+                    'content': request.message, 
+                    'timestamp': datetime.now().isoformat()
+                })
+                
                 # Process with thinking capture
                 response_text, thinking_steps, tool_calls = await self._process_with_thinking_capture(
                     request.message, session_id, request.capture_thinking
                 )
                 
+                # Store assistant response in conversation history AFTER processing
+                self.session_context['conversation_history'].append({
+                    'role': 'assistant', 
+                    'content': response_text, 
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+                # Keep only recent conversations (last 20 messages)
+                if len(self.session_context['conversation_history']) > 20:
+                    self.session_context['conversation_history'] = self.session_context['conversation_history'][-20:]
+                
+                # Persist conversation history
+                self._ensure_memory_persistence()
+                
                 execution_time = (datetime.now() - start_time).total_seconds() * 1000
+                
+                logger.info(f"Conversation history now has {len(self.session_context['conversation_history'])} messages")
                 
                 return ChatResponse(
                     response=response_text,
@@ -1782,8 +1814,16 @@ Execute the complex workflow systematically, providing detailed progress updates
         if capture_thinking:
             self.thinking_sessions[session_id] = []
         
+        # Add cached context to system prompt
+        cached_context = self._build_cached_context_prompt()
+        
         # Enhanced system prompt that encourages explicit reasoning
         system_prompt = f"""You are an AI assistant with access to Salesforce and Jira systems through MCP tools.
+
+{cached_context}
+
+CRITICAL INSTRUCTION FOR CONTEXT USAGE:
+When users refer to previously discussed entities like "the opportunity", "that case", "Big Opps", etc., you MUST use the cached context above to identify the specific entity and its details (including IDs, Account IDs, etc.). Do NOT ask for information that is already available in the cached context.
 
 THINKING PROCESS INSTRUCTIONS:
 When processing requests, you should think step-by-step and be explicit about your reasoning process. 
@@ -1801,7 +1841,22 @@ Available tools: {[tool['name'] for tool in self.available_tools]}
 
 Your goal is to provide comprehensive, well-reasoned responses while being transparent about your decision-making process."""
         
-        messages = [{'role': 'user', 'content': query}]
+        # Build messages with conversation history
+        messages = []
+        
+        # Add conversation history from session context
+        if 'conversation_history' in self.session_context:
+            try:
+                history = self.session_context['conversation_history'][-10:]  # Last 10 messages
+                for msg in history:
+                    if msg.get('role') in ['user', 'assistant']:
+                        messages.append({'role': msg['role'], 'content': msg['content']})
+                logger.info(f"Added {len(messages)} messages from conversation history to thinking capture")
+            except Exception as e:
+                logger.warning(f"Failed to retrieve conversation history for thinking capture: {e}")
+        
+        # Add current user message
+        messages.append({'role': 'user', 'content': query})
         
         try:
             response = self.anthropic.messages.create(
