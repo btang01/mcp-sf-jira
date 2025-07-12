@@ -57,10 +57,21 @@ logger = logging.getLogger(__name__)
 # Initialize Strands telemetry if available
 if STRANDS_AVAILABLE:
     try:
-        # Skip telemetry for now - focus on agent functionality
-        logger.info("Strands SDK available - telemetry skipped")
+        # Import telemetry components
+        from strands.telemetry import TelemetryClient, ConsoleExporter
+        
+        # Initialize telemetry with console output for debugging
+        telemetry_client = TelemetryClient()
+        console_exporter = ConsoleExporter()
+        telemetry_client.add_exporter(console_exporter)
+        
+        # Enable telemetry
+        telemetry_client.enable()
+        
+        logger.info("✅ Strands telemetry enabled with console output")
     except Exception as e:
         logger.warning(f"Strands telemetry setup failed: {e}")
+        logger.info("Continuing without telemetry")
 
 # Pydantic models
 class ToolCallRequest(BaseModel):

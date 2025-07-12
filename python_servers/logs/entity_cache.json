@@ -5,10 +5,88 @@
     "data": {
       "key": "TECH-1",
       "summary": "Database Performance Optimization",
+      "description": "Optimize database queries for Ballmart integration performance issues.\nSF_CASE_ID: 00001026",
       "status": "To Do",
       "assignee": "Unassigned",
-      "created": "2025-07-10T11:09:35.857-0700"
+      "reporter": "Brian Tang",
+      "created": "2025-07-10T11:09:35.857-0700",
+      "updated": "2025-07-12T08:34:29.769-0700"
     },
-    "cached_at": "2025-07-11T18:12:23.855867"
+    "cached_at": "2025-07-12T16:29:58.149325"
+  },
+  "Jira:TECH-7": {
+    "type": "Jira",
+    "key": "TECH-7",
+    "data": {
+      "key": "TECH-7",
+      "summary": "Everything Power Button Malfunction in Latest Release",
+      "status": "To Do",
+      "assignee": "Unassigned",
+      "created": "2025-07-11T08:04:45.491-0700"
+    },
+    "cached_at": "2025-07-12T14:59:39.537501"
+  },
+  "Jira:TECH-6": {
+    "type": "Jira",
+    "key": "TECH-6",
+    "data": {
+      "key": "TECH-6",
+      "summary": "Everything Power Button Bug - Breaking Functionality",
+      "status": "To Do",
+      "assignee": "Unassigned",
+      "created": "2025-07-10T20:11:38.774-0700"
+    },
+    "cached_at": "2025-07-12T14:59:39.537569"
+  },
+  "Jira:TECH-5": {
+    "type": "Jira",
+    "key": "TECH-5",
+    "data": {
+      "key": "TECH-5",
+      "summary": "Everything Power Button Bug - Breaking Functionality",
+      "description": "Critical bug reported affecting the Everything Power button functionality in the latest release. This is blocking the Modernization of IT Systems implementation.\n\nImpact:\n- Breaking functionality of Everything Power button\n- Affecting implementation progress\n- Putting opportunity at risk\n\nRelated Opportunity: Modernization of IT Systems",
+      "status": "To Do",
+      "assignee": "Unassigned",
+      "reporter": "Brian Tang",
+      "created": "2025-07-10T19:51:49.330-0700",
+      "updated": "2025-07-10T19:51:49.405-0700"
+    },
+    "cached_at": "2025-07-12T16:16:57.285804"
+  },
+  "Jira:TECH-4": {
+    "type": "Jira",
+    "key": "TECH-4",
+    "data": {
+      "key": "TECH-4",
+      "summary": "Back Button Functionality Broken in Latest Release",
+      "status": "To Do",
+      "assignee": "Unassigned",
+      "created": "2025-07-10T19:21:11.130-0700"
+    },
+    "cached_at": "2025-07-12T14:59:39.537578"
+  },
+  "Jira:TECH-3": {
+    "type": "Jira",
+    "key": "TECH-3",
+    "data": {
+      "key": "TECH-3",
+      "summary": "Back Button Functionality Broken in Latest Release",
+      "status": "To Do",
+      "assignee": "Unassigned",
+      "created": "2025-07-10T19:18:47.853-0700"
+    },
+    "cached_at": "2025-07-12T14:59:39.537581"
+  },
+  "Jira:TECH-2": {
+    "type": "Jira",
+    "key": "TECH-2",
+    "data": {
+      "key": "TECH-2",
+      "summary": "Back Button Functionality Broken in Latest Release",
+      "status": "To Do",
+      "assignee": "Unassigned",
+      "created": "2025-07-10T19:18:27.501-0700"
+    },
+    "cached_at": "2025-07-12T14:59:39.537585"
   }
 }
