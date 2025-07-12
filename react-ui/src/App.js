@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import SalesforcePanel from './components/SalesforcePanel';
 import JiraPanel from './components/JiraPanel';
 import IntegrationPanel from './components/IntegrationPanel';
+import MemoryPanel from './components/MemoryPanel';
 import ThinkingIndicator from './components/ThinkingIndicator';
 import StatusBar from './components/StatusBar';
 import AssistantChat, { ChatToggle } from './components/AssistantChat';
@@ -56,6 +57,7 @@ function App() {
     { id: 'salesforce', label: 'Salesforce', icon: Database, color: 'sf-gradient' },
     { id: 'jira', label: 'Jira', icon: Ticket, color: 'jira-gradient' },
     { id: 'integration', label: 'Integration', icon: Zap, color: 'bg-gradient-to-r from-purple-500 to-pink-500' },
+    { id: 'memory', label: 'Memory', icon: Brain, color: 'bg-gradient-to-r from-purple-600 to-indigo-600' },
   ];
 
   const renderContent = () => {
@@ -68,6 +70,8 @@ function App() {
         return <JiraPanel onThinking={setGlobalThinking} onActivity={setLastActivity} />;
       case 'integration':
         return <IntegrationPanel onThinking={setGlobalThinking} onActivity={setLastActivity} />;
+      case 'memory':
+        return <MemoryPanel onThinking={setGlobalThinking} onActivity={setLastActivity} />;
       default:
         return <Dashboard onThinking={setGlobalThinking} onActivity={setLastActivity} />;
     }

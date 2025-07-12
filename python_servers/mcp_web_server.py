@@ -387,6 +387,64 @@ class MCPWebServer:
                     trace_id=trace_id
                 )
         
+        @self.app.get("/api/memory/status")
+        async def get_memory_status():
+            """Get current memory status for the UI"""
+            try:
+                # Collect entity data
+                entities = []
+                for cache_key, entity_data in self.entity_cache.items():
+                    if ':' in cache_key and not cache_key.startswith(('Opportunity:Name:', 'Case:Number:', 'Case:JiraKey:', 'Account:Name:')):
+                        entity_info = {
+                            'type': entity_data.get('type', 'Unknown'),
+                            'id': entity_data.get('id', cache_key.split(':', 1)[1]),
+                            'name': self._extract_entity_name(entity_data),
+                            'description': self._extract_entity_description(entity_data),
+                            'metadata': self._extract_entity_metadata(entity_data),
+                            'cached_at': entity_data.get('cached_at'),
+                            'timestamp': entity_data.get('timestamp')
+                        }
+                        entities.append(entity_info)
+                
+                # Collect conversation data
+                conversations = []
+                if 'conversation_history' in self.session_context:
+                    conversations = self.session_context['conversation_history'][-20:]  # Last 20 messages
+                
+                # Collect context data
+                context = {}
+                for key, value in self.session_context.items():
+                    if key != 'conversation_history':  # Exclude conversation history from context
+                        context[key] = value
+                
+                # Calculate stats
+                stats = {
+                    'totalEntities': len(entities),
+                    'totalConversations': len(conversations),
+                    'memoryUsage': min(100, (len(entities) + len(conversations)) * 2)  # Simple usage calculation
+                }
+                
+                return {
+                    'entities': entities,
+                    'conversations': conversations,
+                    'context': context,
+                    'stats': stats,
+                    'timestamp': datetime.now().isoformat(),
+                    'strands_available': STRANDS_AVAILABLE,
+                    'strands_agent_active': self.strands_agent is not None
+                }
+                
+            except Exception as e:
+                logger.error(f"Error getting memory status: {e}")
+                return {
+                    'entities': [],
+                    'conversations': [],
+                    'context': {},
+                    'stats': {'totalEntities': 0, 'totalConversations': 0, 'memoryUsage': 0},
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }
+
         @self.app.get("/api/health")
         async def health_check():
             """Health check with Strands integration status"""
@@ -1524,6 +1582,53 @@ Execute the complex workflow systematically, providing detailed progress updates
         except Exception as e:
             logger.warning(f"Failed to persist caches: {e}")
     
+    def _extract_entity_name(self, entity_data: Dict[str, Any]) -> str:
+        """Extract a display name from entity data"""
+        try:
+            data = entity_data.get('data', {})
+            # Try common name fields
+            for field in ['Name', 'CaseNumber', 'summary', 'key', 'Subject']:
+                if field in data and data[field]:
+                    return str(data[field])
+            
+            # Fallback to ID or type
+            return entity_data.get('id', entity_data.get('type', 'Unknown'))
+        except Exception:
+            return 'Unknown'
+    
+    def _extract_entity_description(self, entity_data: Dict[str, Any]) -> Optional[str]:
+        """Extract a description from entity data"""
+        try:
+            data = entity_data.get('data', {})
+            # Try common description fields
+            for field in ['Description', 'Subject', 'summary', 'Status']:
+                if field in data and data[field]:
+                    return str(data[field])[:200]  # Limit length
+            return None
+        except Exception:
+            return None
+    
+    def _extract_entity_metadata(self, entity_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract metadata from entity data"""
+        try:
+            data = entity_data.get('data', {})
+            metadata = {}
+            
+            # Common metadata fields
+            metadata_fields = [
+                'Status', 'Priority', 'Implementation_Status__c', 
+                'Jira_Issue_Key__c', 'Jira_Project_Key__c', 'AccountId',
+                'Amount', 'CloseDate', 'StageName', 'Type'
+            ]
+            
+            for field in metadata_fields:
+                if field in data and data[field] is not None:
+                    metadata[field] = data[field]
+            
+            return metadata
+        except Exception:
+            return {}
+
     def _ensure_memory_persistence(self):
         """Ensure memory is persisted after each significant operation"""
         try:
