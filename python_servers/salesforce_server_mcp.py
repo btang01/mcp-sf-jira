@@ -249,6 +249,7 @@ async def salesforce_create_activity(subject: str, account_id: str, description:
         logger.error(f"Activity creation failed: {e}")
         return f"Error creating activity: {str(e)}"
 
+
 @mcp.tool()
 async def salesforce_update_record(sobject_type: str, record_id: str, data: Dict[str, Any]) -> str:
     """Update any Salesforce record with flexible field support

@@ -10,6 +10,7 @@ import logging
 import aiohttp
 import sys
 import os
+import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from dataclasses import dataclass
@@ -144,6 +145,10 @@ class MCPWebServer:
             version="1.0.0",
             lifespan=lifespan
         )
+        
+        # Request tracking to prevent duplicates
+        self.active_requests = {}
+        self.request_counter = 0
         
         # HTTP-based MCP services
         self.services: Dict[str, MCPService] = {
@@ -1040,18 +1045,9 @@ When querying data, always include custom fields in your SOQL queries to provide
                                 full_response += response.content[0].text
                                 process_query = False
                                 
-            # Store conversation in fallback memory
-            try:
-                if 'conversation_history' not in self.session_context:
-                    self.session_context['conversation_history'] = []
-                self.session_context['conversation_history'].append({'role': 'user', 'content': query, 'timestamp': datetime.now().isoformat()})
-                self.session_context['conversation_history'].append({'role': 'assistant', 'content': full_response, 'timestamp': datetime.now().isoformat()})
-                # Keep only recent conversations
-                if len(self.session_context['conversation_history']) > 20:
-                    self.session_context['conversation_history'] = self.session_context['conversation_history'][-20:]
-                logger.info("Stored conversation in fallback memory")
-            except Exception as e:
-                logger.warning(f"Failed to store conversation in memory: {e}")
+            # Note: Conversation storage is handled by the chat-with-thinking endpoint
+            # Don't duplicate storage here to avoid message duplication
+            logger.info("Chat processing completed - conversation storage handled by endpoint")
             
             # Ensure memory persistence after each chat
             self._ensure_memory_persistence()
@@ -1072,11 +1068,106 @@ When querying data, always include custom fields in your SOQL queries to provide
         return await self._call_mcp_tool_direct(service, tool_name, arguments)
     
     
+    def _generate_unique_tool_id(self) -> str:
+        """Generate unique tool call ID to prevent duplicates"""
+        self.request_counter += 1
+        timestamp = int(datetime.now().timestamp() * 1000)
+        unique_id = f"tool_{uuid.uuid4().hex[:8]}_{timestamp}_{self.request_counter}"
+        return unique_id
+    
+    def _normalize_tool_result(self, result: Any) -> str:
+        """Normalize any tool result format to consistent string format"""
+        try:
+            if hasattr(result, 'content') and result.content:
+                # Handle CallToolResult objects
+                first_content = result.content[0]
+                if hasattr(first_content, 'text'):
+                    return first_content.text
+                else:
+                    return str(first_content)
+            elif isinstance(result, tuple) and len(result) > 0:
+                # Handle tuple responses (content_list, metadata)
+                content_list = result[0]
+                if isinstance(content_list, list) and len(content_list) > 0:
+                    first_content = content_list[0]
+                    if hasattr(first_content, 'text'):
+                        return first_content.text
+                    else:
+                        return str(first_content)
+                else:
+                    return str(content_list)
+            elif isinstance(result, str):
+                # Direct string result
+                return result
+            else:
+                # Fallback to string representation
+                return str(result)
+        except Exception as e:
+            logger.warning(f"Error normalizing tool result: {e}")
+            return str(result)
+    
+    def _is_duplicate_request(self, request_id: str) -> bool:
+        """Check if request ID is already being processed"""
+        if request_id in self.active_requests:
+            logger.warning(f"Duplicate request detected: {request_id}")
+            return True
+        return False
+    
+    def _track_request(self, request_id: str, service: str, tool_name: str):
+        """Track active request to prevent duplicates"""
+        self.active_requests[request_id] = {
+            'service': service,
+            'tool': tool_name,
+            'started': datetime.now().isoformat()
+        }
+    
+    def _complete_request(self, request_id: str):
+        """Mark request as completed"""
+        self.active_requests.pop(request_id, None)
+        
+        # Cleanup old requests periodically
+        if len(self.active_requests) > 100:
+            self._cleanup_old_requests()
+    
+    def _cleanup_old_requests(self):
+        """Remove old/stale requests to prevent memory leaks"""
+        try:
+            current_time = datetime.now()
+            stale_requests = []
+            
+            for request_id, request_info in self.active_requests.items():
+                started_time = datetime.fromisoformat(request_info['started'])
+                age_minutes = (current_time - started_time).total_seconds() / 60
+                
+                # Remove requests older than 5 minutes
+                if age_minutes > 5:
+                    stale_requests.append(request_id)
+            
+            for request_id in stale_requests:
+                self.active_requests.pop(request_id, None)
+                
+            if stale_requests:
+                logger.info(f"Cleaned up {len(stale_requests)} stale requests")
+                
+        except Exception as e:
+            logger.warning(f"Error during request cleanup: {e}")
+
     async def _call_mcp_tool_direct(self, service: str, tool_name: str, arguments: Dict[str, Any]) -> str:
-        """Direct MCP tool call with enhanced error handling and retry logic"""
+        """Direct MCP tool call with enhanced error handling and duplicate prevention"""
         svc = self.services[service]
         
-        # Send tool call request via HTTP
+        # Generate unique request ID
+        request_id = self._generate_unique_tool_id()
+        
+        # Check for duplicate requests
+        if self._is_duplicate_request(request_id):
+            raise ValueError(f"Duplicate request ID: {request_id}")
+        
+        # Track this request
+        self._track_request(request_id, service, tool_name)
+        
+        # Send tool call request via HTTP (use integer ID for JSON-RPC compatibility)
+        json_rpc_id = int(datetime.now().timestamp() * 1000)
         tool_request = {
             "jsonrpc": "2.0",
             "method": "tools/call",
@@ -1084,7 +1175,7 @@ When querying data, always include custom fields in your SOQL queries to provide
                 "name": tool_name,
                 "arguments": arguments
             },
-            "id": int(datetime.now().timestamp() * 1000)
+            "id": json_rpc_id
         }
         
         try:
@@ -1098,17 +1189,19 @@ When querying data, always include custom fields in your SOQL queries to provide
                     result = await response.json()
                     if "result" in result:
                         mcp_result = result["result"]
-                        if isinstance(mcp_result, dict) and "content" in mcp_result:
-                            content = mcp_result["content"]
-                            if content and len(content) > 0:
-                                first_content = content[0]
-                                if isinstance(first_content, dict) and "text" in first_content:
-                                    return first_content["text"]
-                        return str(result["result"])
+                        normalized_result = self._normalize_tool_result(mcp_result)
+                        
+                        # Complete the request successfully
+                        self._complete_request(request_id)
+                        return normalized_result
+                        
                     elif "error" in result:
                         error_info = result["error"]
                         error_msg = error_info.get("message", "Unknown error")
                         error_code = error_info.get("code", "unknown")
+                        
+                        # Complete the request (even on error)
+                        self._complete_request(request_id)
                         
                         # Enhanced error parsing for better recovery
                         if "required field" in error_msg.lower():
@@ -1120,15 +1213,20 @@ When querying data, always include custom fields in your SOQL queries to provide
                         else:
                             raise Exception(f"MCP tool error [{error_code}]: {error_msg}")
                 else:
+                    # Complete the request on HTTP error
+                    self._complete_request(request_id)
                     raise aiohttp.ClientError(f"HTTP error: {response.status}")
                     
         except aiohttp.ClientError as e:
+            self._complete_request(request_id)
             logger.warning(f"HTTP client error calling {tool_name}: {e}")
             raise
         except asyncio.TimeoutError as e:
+            self._complete_request(request_id)
             logger.warning(f"Timeout calling {tool_name}: {e}")
             raise
         except Exception as e:
+            self._complete_request(request_id)
             logger.error(f"Unexpected error calling {tool_name}: {e}")
             raise
     
@@ -1844,14 +1942,16 @@ Your goal is to provide comprehensive, well-reasoned responses while being trans
         # Build messages with conversation history
         messages = []
         
-        # Add conversation history from session context
+        # Add conversation history from session context (excluding the current message to avoid duplication)
         if 'conversation_history' in self.session_context:
             try:
                 history = self.session_context['conversation_history'][-10:]  # Last 10 messages
+                # Filter out messages that match the current query to avoid duplication
                 for msg in history:
-                    if msg.get('role') in ['user', 'assistant']:
+                    if (msg.get('role') in ['user', 'assistant'] and 
+                        msg.get('content') != query):  # Don't include the current message
                         messages.append({'role': msg['role'], 'content': msg['content']})
-                logger.info(f"Added {len(messages)} messages from conversation history to thinking capture")
+                logger.info(f"Added {len(messages)} messages from conversation history to thinking capture (excluding current message)")
             except Exception as e:
                 logger.warning(f"Failed to retrieve conversation history for thinking capture: {e}")
         
